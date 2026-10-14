@@ -31,7 +31,16 @@ export async function analyzeVisionImage({ apiKey, model = "gpt-4o-mini", imageD
         text: { format: { type: "json_schema", name: "omekh_scene_interpretation", strict: true, schema: VISION_SCHEMA } },
       }),
     });
-    if (!response.ok) return error(502, "El proveedor de IA no pudo procesar la captura.");
+    if (!response.ok) {
+      let detail = "";
+      try {
+        const failure = await response.json();
+        detail = failure?.error?.message || failure?.error || failure?.message || "";
+      } catch {
+        try { detail = (await response.text()).slice(0, 240); } catch { }
+      }
+      return error(502, detail ? "El proveedor de IA no pudo procesar la captura (" + response.status + "): " + detail : "El proveedor de IA no pudo procesar la captura (" + response.status + ").");
+    }
     const payload = await response.json();
     let parsed;
     try { parsed = typeof payload.output_text === "string" ? JSON.parse(payload.output_text) : payload.output_text; } catch { return error(502, "El proveedor devolvió una interpretación visual no válida."); }

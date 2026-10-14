@@ -15,7 +15,11 @@ export async function classifyAudio({ apiKey, model = "gpt-audio-1.5", audioBase
       model, store: false, messages: [{ role: "user", content: [{ type: "text", text: "Clasifica este fragmento acústico en una categoría amplia compatible con el audio. Describe sólo lo que sea audible; expresa incertidumbre; no identifiques personas ni afirmes una fuente no verificable." }, { type: "input_audio", input_audio: { data: audioBase64, format } }] }],
       response_format: { type: "json_schema", json_schema: { name: "omekh_audio_classification", strict: true, schema: AUDIO_SCHEMA } },
     }) });
-    if (!response.ok) return error(502, "El proveedor de IA no pudo clasificar el audio.");
+    if (!response.ok) {
+      let detail = "";
+      try { const failure = await response.json(); detail = failure?.error?.message || failure?.error || failure?.message || ""; } catch { try { detail = (await response.text()).slice(0, 240); } catch { } }
+      return error(502, detail ? "El proveedor de IA no pudo clasificar el audio (" + response.status + "): " + detail : "El proveedor de IA no pudo clasificar el audio (" + response.status + ").");
+    }
     const payload = await response.json(); const content = payload.choices?.[0]?.message?.content;
     const parsed = typeof content === "string" ? JSON.parse(content) : content;
     const result = normalizeAudioClassification(parsed); if (!result.ok) return error(502, result.error);
