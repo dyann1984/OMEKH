@@ -22,7 +22,7 @@ export default function HolographicCore({ mode = "idle", audioLevel = 0 }: Props
     let animationId = 0;
     let time = 0;
 
-    const particles = Array.from({ length: 90 }, (_, index) => ({
+    const particles = Array.from({ length: 48 }, (_, index) => ({
       angle: (index / 90) * Math.PI * 2,
       radius: 90 + (index % 17) * 18,
       depth: 0.4 + (index % 7) / 10,
@@ -30,7 +30,7 @@ export default function HolographicCore({ mode = "idle", audioLevel = 0 }: Props
     }));
 
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = 1;
       const rect = canvas.getBoundingClientRect();
       canvas.width = Math.max(1, Math.round(rect.width * dpr));
       canvas.height = Math.max(1, Math.round(rect.height * dpr));
@@ -69,7 +69,7 @@ export default function HolographicCore({ mode = "idle", audioLevel = 0 }: Props
         context.stroke();
       }
 
-      for (let index = 0; index < 10; index += 1) {
+      for (let index = 0; index < 5; index += 1) {
         const waveRadius = radius * (1 + index * 0.34) + (reducedMotion ? 0 : Math.sin(time + index * 0.7) * 6) + normalizedAudio * index * 24;
         const color = mode === "error" ? "#f07467" : index % 2 === 0 ? "#3de2ef" : "#d6ad57";
         context.strokeStyle = (mode === "idle" ? "rgba(153, 165, 173, 0.18)" : color + "33");
