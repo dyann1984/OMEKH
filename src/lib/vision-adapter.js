@@ -8,6 +8,47 @@ function error(status, message) {
   return { status, body: { error: message } };
 }
 
+function extractResponseText(payload) {
+  if (typeof payload?.output_text === "string") return payload.output_text;
+  if (Array.isArray(payload?.output)) {
+    const parts = [];
+    for (const item of payload.output) {
+      if (Array.isArray(item?.content)) {
+        for (const content of item.content) {
+          if (content?.type === "output_text" && typeof content.text === "string") parts.push(content.text);
+          if (typeof content?.text === "string" && !content.type) parts.push(content.text);
+        }
+      }
+      if (typeof item?.text === "string") parts.push(item.text);
+    }
+    if (parts.length) return parts.join("");
+  }
+  if (typeof payload?.text?.value === "string") return payload.text.value;
+  if (typeof payload?.text === "string") return payload.text;
+  return "";
+}
+
+function parseJsonContent(value) {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const candidate = fenced?.[1] || trimmed;
+    const start = candidate.indexOf("{");
+    const end = candidate.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      try {
+        return JSON.parse(candidate.slice(start, end + 1));
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+}
+
 export async function analyzeVisionImage({ apiKey, model = "gpt-4o-mini", imageDataUrl, fetchImpl = fetch, timeoutMs = VISION_TIMEOUT_MS }) {
   if (!apiKey) return error(503, "IA no configurada: falta OPENAI_API_KEY en el servidor.");
   if (typeof imageDataUrl !== "string" || !imageDataUrl.startsWith("data:image/") || imageDataUrl.length > MAX_IMAGE_CHARS) {
@@ -42,10 +83,15 @@ export async function analyzeVisionImage({ apiKey, model = "gpt-4o-mini", imageD
       return error(502, detail ? "El proveedor de IA no pudo procesar la captura (" + response.status + "): " + detail : "El proveedor de IA no pudo procesar la captura (" + response.status + ").");
     }
     const payload = await response.json();
+    const outputText = extractResponseText(payload);
+    if (!outputText) {
+      return error(502, "El proveedor devolvió una respuesta vacía (" + (payload?.status || "sin estado") + ").");
+    }
     let parsed;
-    try { parsed = typeof payload.output_text === "string" ? JSON.parse(payload.output_text) : payload.output_text; } catch { return error(502, "El proveedor devolvió una interpretación visual no válida."); }
+    try { parsed = parseJsonContent(outputText); } catch { return error(502, "El proveedor devolvió una interpretación visual no válida: " + (outputText || "").slice(0, 240)); }
+    if (!parsed) return error(502, "El proveedor devolvió una interpretación visual no válida: " + (outputText || "").slice(0, 240));
     const structured = normalizeStructuredVision(parsed);
-    if (!structured.ok) return error(502, structured.error);
+    if (!structured.ok) return error(502, structured.error + (outputText ? " Respuesta: " + outputText.slice(0, 240) : ""));
     const result = normalizeVisionResponse({ description: structured.value.scene_description });
     if (!result.ok) return error(502, result.error);
     return { status: 200, body: { description: result.description, interpretation: structured.value, provider: "OpenAI Responses API", generatedAt: new Date().toISOString(), source: "model" } };
