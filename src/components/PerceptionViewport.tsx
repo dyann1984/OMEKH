@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { assignPerceptionTracks } from "@/lib/perception-tracking";
 
 export interface Detection {
   label: string;
@@ -169,22 +170,9 @@ export default function PerceptionViewport({ videoRef, cameraActive, onPerceptio
           relativeX: "centro",
           relativeY: "medio",
         }));
-        const matched = new Set<number>();
-        const nextTracks = raw.map((item) => {
-          const matchIndex = tracksRef.current.findIndex((track, index) => !matched.has(index) && track.label === item.label && intersectionOverUnion(track.box, item.box) > 0.4);
-          const isExisting = matchIndex >= 0;
-          if (isExisting) matched.add(matchIndex);
-          const trackId = isExisting ? tracksRef.current[matchIndex].id : `track-${Math.random().toString(36).slice(2, 8)}`;
-          if (isExisting) tracksRef.current[matchIndex].box = item.box;
-          else tracksRef.current.push({ id: trackId, label: item.label, box: item.box, lastSeen: now, missed: 0 });
-          return { ...item, trackId, state: (isExisting && deltaSince(tracksRef.current.find((track) => track.id === trackId), now) <= 1200 ? "permanece" : "apareció") as Detection["state"] };
-        });
-
-        tracksRef.current = tracksRef.current
-          .map((track) => (matched.has(tracksRef.current.indexOf(track)) ? { ...track, lastSeen: now, missed: 0 } : { ...track, missed: track.missed + 1 }))
-          .filter((track) => track.missed <= 8);
-
-        const nextDetections = nextTracks.map(classifyTrack);
+        const { detections: trackedDetections, tracks: retainedTracks } = assignPerceptionTracks(raw, tracksRef.current, now, { movementThreshold: 0.08 });
+        tracksRef.current = retainedTracks;
+        const nextDetections = trackedDetections.map(classifyTrack);
         overlayRef.current = nextDetections;
         setDetections(nextDetections);
         setLatency(Math.round(performance.now() - startedAt));
@@ -246,18 +234,4 @@ export default function PerceptionViewport({ videoRef, cameraActive, onPerceptio
       )}
     </div>
   );
-}
-
-function intersectionOverUnion(a: [number, number, number, number], b: [number, number, number, number]) {
-  const x1 = Math.max(a[0], b[0]);
-  const y1 = Math.max(a[1], b[1]);
-  const x2 = Math.min(a[0] + a[2], b[0] + b[2]);
-  const y2 = Math.min(a[1] + a[3], b[1] + b[3]);
-  const intersection = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
-  const union = a[2] * a[3] + b[2] * b[3] - intersection;
-  return union === 0 ? 0 : intersection / union;
-}
-
-function deltaSince(track: Track | undefined, now: number) {
-  return track ? now - (track.lastSeen || now) : 0;
 }
