@@ -1,5 +1,9 @@
-export function fusePerception({ vision, acoustic, visionCapturedAt, acousticCapturedAt, correlationWindowMs = 8000, timestamp = Date.now() } = {}) {
-  const now = Number.isFinite(Number(timestamp)) ? Number(timestamp) : null;
+/**
+ * @param {any} options
+ * @returns {any}
+ */
+export function fusePerception({ vision, acoustic, visionCapturedAt, acousticCapturedAt, correlationWindowMs = 8000, timestamp = performance.now() } = {}) {
+  const now = Number.isFinite(Number(timestamp)) ? Number(timestamp) : (typeof performance !== "undefined" ? performance.now() : 0);
   const visionTime = Number.isFinite(Number(visionCapturedAt)) ? Number(visionCapturedAt) : null;
   const audioTime = Number.isFinite(Number(acousticCapturedAt)) ? Number(acousticCapturedAt) : null;
   const windowMs = Number.isFinite(Number(correlationWindowMs)) && Number(correlationWindowMs) >= 0 ? Number(correlationWindowMs) : 8000;
