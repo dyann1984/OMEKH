@@ -21,6 +21,21 @@ test("movement changes state", () => {
   assert.equal(second.detections[0].state, "en movimiento");
 });
 
+test("two same-class objects stay one-to-one during crossed trajectory", () => {
+  const initial = assignPerceptionTracks([
+    { label: "chair", score: 0.8, box: [10, 10, 40, 40] },
+    { label: "chair", score: 0.9, box: [180, 10, 40, 40] },
+  ], [], 1000);
+  const result = assignPerceptionTracks([
+    { label: "chair", score: 0.85, box: [178, 10, 40, 40] },
+    { label: "chair", score: 0.9, box: [8, 10, 40, 40] },
+  ], initial.tracks, 1500);
+
+  assert.equal(result.detections.length, 2);
+  const trackIds = result.detections.map((item) => item.trackId).sort();
+  assert.equal(new Set(trackIds).size, 2, "La misma pista no puede asignarse a ambos objetos del mismo fotograma");
+});
+
 test("missing track disappears after threshold", () => {
   const first = assignPerceptionTracks([{ label: "chair", score: 0.9, box: [10, 10, 20, 20] }], [], 1000);
   const frames = 10;

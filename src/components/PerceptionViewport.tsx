@@ -79,23 +79,41 @@ export default function PerceptionViewport({ videoRef, cameraActive, onPerceptio
     const canvas = canvasRef.current;
     const video = videoRef.current;
     if (!canvas || !video || video.videoWidth === 0) return;
+    const parent = canvas.parentElement;
+    if (!parent) return;
     const context = canvas.getContext("2d");
     if (!context) return;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    context.clearRect(0, 0, canvas.width, canvas.height);
+    const containerWidth = parent.clientWidth;
+    const containerHeight = parent.clientHeight || Math.round(containerWidth * 0.75);
+    const scale = Math.max(containerWidth / video.videoWidth, containerHeight / video.videoHeight);
+    const offsetX = (containerWidth - video.videoWidth * scale) / 2;
+    const offsetY = (containerHeight - video.videoHeight * scale) / 2;
 
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(containerWidth * dpr);
+    canvas.height = Math.round(containerHeight * dpr);
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.clearRect(0, 0, containerWidth, containerHeight);
+
+    context.save();
+    context.translate(containerWidth, 0);
+    context.scale(-1, 1);
     for (const item of overlayRef.current) {
       const [x, y, width, height] = item.box;
+      const drawnX = offsetX + x * scale;
+      const drawnY = offsetY + y * scale;
+      const drawnWidth = width * scale;
+      const drawnHeight = height * scale;
       context.strokeStyle = item.state === "apareció" ? "#d6ad57" : "#3de2ef";
-      context.lineWidth = Math.max(2, canvas.width * 0.0035);
-      context.strokeRect(x, y, width, height);
+      context.lineWidth = Math.max(2, drawnWidth * 0.035);
+      context.strokeRect(drawnX, drawnY, drawnWidth, drawnHeight);
       context.fillStyle = item.state === "apareció" ? "rgba(214, 173, 87, 0.16)" : "rgba(61, 226, 239, 0.1)";
-      context.fillRect(x, y, width, height);
+      context.fillRect(drawnX, drawnY, drawnWidth, drawnHeight);
       context.fillStyle = "#f3f0e9";
-      context.font = `${Math.max(12, canvas.width * 0.018)}px Arial`;
-      context.fillText(`${item.label} ${Math.round(item.score * 100)}% · ${item.relativeX}/${item.relativeY}`, x + 4, Math.max(16, y + 4));
+      context.font = `${Math.max(12, drawnWidth * 0.09)}px Arial`;
+      context.fillText(`${item.label} ${Math.round(item.score * 100)}% · ${item.relativeX}/${item.relativeY}`, drawnX + 4, Math.max(16, drawnY + 4));
     }
+    context.restore();
   }
 
   useEffect(() => {
@@ -121,24 +139,39 @@ export default function PerceptionViewport({ videoRef, cameraActive, onPerceptio
     setError(null);
 
     async function loadDetector() {
-      if (!(window as Window & { tf?: TFModule }).tf) {
-        await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js");
-      }
-      const tensorflow = (window as Window & { tf?: TFModule }).tf;
-      if (!tensorflow) throw new Error("TensorFlow.js no pudo cargarse.");
-      try {
-        await tensorflow.ready();
-      } catch {
-        if ((tensorflow as { setBackend?: (backend: string) => void }).setBackend) await (tensorflow as { setBackend?: (backend: string) => void }).setBackend?.("cpu");
-        await tensorflow.ready();
+      const scope = window as Window & {
+        tf?: TFModule;
+        cocoSsd?: { load: () => Promise<Detector> };
+        __OMKEH_PERCEPTION_MODEL_PROMISE?: Promise<Detector>;
+      };
+
+      if (!scope.__OMKEH_PERCEPTION_MODEL_PROMISE) {
+        scope.__OMKEH_PERCEPTION_MODEL_PROMISE = (async () => {
+          if (!scope.tf) {
+            await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js");
+          }
+          const tensorflow = scope.tf;
+          if (!tensorflow) throw new Error("TensorFlow.js no se cargó.");
+          try {
+            const tfApi = tensorflow as { setBackend?: (backend: string) => Promise<void> };
+            if (tfApi.setBackend) await tfApi.setBackend("webgl");
+            await tensorflow.ready();
+          } catch {
+            (tensorflow as { setBackend?: (backend: string) => Promise<void> }).setBackend?.("cpu");
+            await tensorflow.ready();
+          }
+
+          if (!scope.cocoSsd) {
+            await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js");
+          }
+          const modelFactory = scope.cocoSsd;
+          if (!modelFactory) throw new Error("COCO-SSD no pudo cargarse.");
+          const detector = await modelFactory.load();
+          return detector;
+        })();
       }
 
-      if (!(window as Window & { cocoSsd?: { load: () => Promise<Detector> } }).cocoSsd) {
-        await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js");
-      }
-      const modelFactory = (window as Window & { cocoSsd?: { load: () => Promise<Detector> } }).cocoSsd;
-      if (!modelFactory) throw new Error("COCO-SSD no pudo cargarse.");
-      return modelFactory.load();
+      return scope.__OMKEH_PERCEPTION_MODEL_PROMISE as Promise<Detector>;
     }
 
     function classifyTrack(detection: Detection): Detection {
