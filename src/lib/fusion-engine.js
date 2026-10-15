@@ -1,36 +1,55 @@
-export function fusePerception({ vision, acoustic, visionCapturedAt = Date.now(), acousticCapturedAt = Date.now(), correlationWindowMs = 8000, timestamp = Date.now() } = {}) {
+export function fusePerception({ vision, acoustic, visionCapturedAt, acousticCapturedAt, correlationWindowMs = 8000, timestamp = Date.now() } = {}) {
+  const now = Number.isFinite(Number(timestamp)) ? Number(timestamp) : null;
+  const visionTime = Number.isFinite(Number(visionCapturedAt)) ? Number(visionCapturedAt) : null;
+  const audioTime = Number.isFinite(Number(acousticCapturedAt)) ? Number(acousticCapturedAt) : null;
+  const windowMs = Number.isFinite(Number(correlationWindowMs)) && Number(correlationWindowMs) >= 0 ? Number(correlationWindowMs) : 8000;
+
   const observations = [];
-  if (vision?.scene_description) observations.push({ text: vision.scene_description, origin: "model", modality: "vision", sourceTimestamp: visionCapturedAt });
-  for (const item of vision?.relevant_observations ?? []) observations.push({ text: item.text, origin: item.origin, modality: "vision", sourceTimestamp: visionCapturedAt });
-  if (acoustic?.category) observations.push({ text: "Categoría acústica: " + acoustic.category, origin: acoustic.origin, modality: "audio", sourceTimestamp: acousticCapturedAt });
-  for (const item of acoustic?.observations ?? []) observations.push({ text: item, origin: acoustic.origin, modality: "audio", sourceTimestamp: acousticCapturedAt });
+  if (vision?.scene_description) observations.push({ text: vision.scene_description, origin: "model", modality: "vision", sourceTimestamp: visionTime });
+  for (const item of vision?.relevant_observations ?? []) observations.push({ text: item.text, origin: item.origin, modality: "vision", sourceTimestamp: visionTime });
+  if (acoustic?.category) observations.push({ text: "Categoría acústica: " + acoustic.category, origin: acoustic.origin, modality: "audio", sourceTimestamp: audioTime });
+  for (const item of acoustic?.observations ?? []) observations.push({ text: item, origin: acoustic.origin, modality: "audio", sourceTimestamp: audioTime });
+
   const missing = [];
   if (!vision) missing.push("interpretación visual");
   if (!acoustic) missing.push("clasificación acústica");
+  const missingSourceTimestamps = [];
+  if (vision && !Number.isFinite(visionTime)) missingSourceTimestamps.push("marca de tiempo visual");
+  if (acoustic && !Number.isFinite(audioTime)) missingSourceTimestamps.push("marca de tiempo acústica");
 
   const correlations = [];
   if (vision && acoustic) {
-    const gap = Math.abs((visionCapturedAt || timestamp) - (acousticCapturedAt || timestamp));
+    const gap = visionTime !== null && audioTime !== null ? Math.abs(visionTime - audioTime) : null;
+    const temporalMatch = gap === null ? null : gap <= windowMs;
     correlations.push({
       type: "temporal-co-occurrence",
-      modalities: ["vision", "audio"],
+      temporalMatch,
+      semanticMatch: false,
+      semanticMatchNote: "Sin calibración semántica manual o inferencia robusta para confirmar coincidencia semántica.",
+      causalRelation: "no-inferible",
       gapMs: gap,
-      confirmed: gap <= correlationWindowMs,
-      confidence: gap <= correlationWindowMs ? "probable" : "low",
-      reason: gap <= correlationWindowMs
-        ? "Las observaciones visuales y acústicas llegaron dentro de la ventana temporal establecida."
-        : "Las observaciones no coinciden temporalmente dentro de la ventana permitida.",
+      confidence: gap === null ? "unknown" : temporalMatch ? "possible" : "low",
+      confirmed: false,
+      requiredToRaiseConfidence: ["alineación semántica verificable", "sensores calibrados", "contexto espacial adicional"],
+      missingEvidence: missingSourceTimestamps.length ? missingSourceTimestamps : missing,
+      reason: gap === null
+        ? "Hay dos modalidades, pero faltan tiempos para calcular la correlación temporal."
+        : temporalMatch
+          ? "Las dos observaciones llegaron dentro de la ventana temporal establecida. Es una asociación probable, no una causalidad confirmada."
+          : "Las observaciones no llegaron dentro de la ventana temporal permitida.",
     });
   }
 
   return {
     observations,
     missing,
+    missingSourceTimestamps,
     correlations,
     contradictions: [],
     status: observations.length ? "partial" : "empty",
-    correlationWindowMs,
-    fusedAt: timestamp,
+    correlationWindowMs: windowMs,
+    fusedAt: now,
+    uncertainFields: correlations.length ? correlations[0].requiredToRaiseConfidence : [],
   };
 }
 
