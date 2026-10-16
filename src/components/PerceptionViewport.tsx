@@ -95,25 +95,21 @@ export default function PerceptionViewport({ videoRef, cameraActive, onPerceptio
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     context.clearRect(0, 0, containerWidth, containerHeight);
 
-    context.save();
-    context.translate(containerWidth, 0);
-    context.scale(-1, 1);
     for (const item of overlayRef.current) {
       const [x, y, width, height] = item.box;
-      const drawnX = offsetX + x * scale;
-      const drawnY = offsetY + y * scale;
       const drawnWidth = width * scale;
       const drawnHeight = height * scale;
-      context.strokeStyle = item.state === "apareció" ? "#d6ad57" : "#3de2ef";
+      const drawnX = containerWidth - offsetX - (x + width) * scale;
+      const drawnY = offsetY + y * scale;
+      context.strokeStyle = item.state === "apareci\u00f3" ? "#d6ad57" : "#3de2ef";
       context.lineWidth = Math.max(2, drawnWidth * 0.035);
       context.strokeRect(drawnX, drawnY, drawnWidth, drawnHeight);
-      context.fillStyle = item.state === "apareció" ? "rgba(214, 173, 87, 0.16)" : "rgba(61, 226, 239, 0.1)";
+      context.fillStyle = item.state === "apareci\u00f3" ? "rgba(214, 173, 87, 0.16)" : "rgba(61, 226, 239, 0.1)";
       context.fillRect(drawnX, drawnY, drawnWidth, drawnHeight);
       context.fillStyle = "#f3f0e9";
       context.font = `${Math.max(12, drawnWidth * 0.09)}px Arial`;
-      context.fillText(`${item.label} ${Math.round(item.score * 100)}% · ${item.relativeX}/${item.relativeY}`, drawnX + 4, Math.max(16, drawnY + 4));
+      context.fillText(`${item.label} ${Math.round(item.score * 100)}% - ${item.relativeX}/${item.relativeY}`, drawnX + 4, Math.max(16, drawnY + 4));
     }
-    context.restore();
   }
 
   useEffect(() => {
