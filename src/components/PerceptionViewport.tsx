@@ -107,8 +107,8 @@ export default function PerceptionViewport({ videoRef, cameraActive, onPerceptio
       context.fillStyle = item.state === "apareci\u00f3" ? "rgba(214, 173, 87, 0.16)" : "rgba(61, 226, 239, 0.1)";
       context.fillRect(drawnX, drawnY, drawnWidth, drawnHeight);
       context.fillStyle = "#f3f0e9";
-      context.font = `${Math.max(12, drawnWidth * 0.09)}px Arial`;
-      context.fillText(`${item.label} ${Math.round(item.score * 100)}% - ${item.relativeX}/${item.relativeY}`, drawnX + 4, Math.max(16, drawnY + 4));
+      context.font = `600 ${Math.max(11, Math.min(13, drawnWidth * 0.07))}px Arial`
+      context.fillText(`${item.label} ${Math.round(item.score * 100)}%`, drawnX + 4, Math.max(12, drawnY + 4));
     }
   }
 
