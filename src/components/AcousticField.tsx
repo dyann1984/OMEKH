@@ -111,6 +111,16 @@ export default function AcousticField({ analyserRef, active, mode = "combined", 
       }
 
       context.clearRect(0, 0, width, height);
+      const coreRadius = Math.max(24, Math.min(width, height) * 0.055);
+      const coreGlow = context.createRadialGradient(cx, cy, 1, cx, cy, coreRadius * (3 + beatPulse * 1.8));
+      coreGlow.addColorStop(0, `rgba(214, 173, 87, ${0.35 + rms * 0.4 * intensity})`);
+      coreGlow.addColorStop(0.45, `rgba(61, 226, 239, ${0.14 + rms * 0.22 * intensity})`);
+      coreGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+      context.fillStyle = coreGlow;
+      context.beginPath();
+      context.arc(cx, cy, coreRadius * (3 + beatPulse * 1.8), 0, Math.PI * 2);
+      context.fill();
+
 
       // Ondas que representan la energía real.
       if (mode !== "particles") {
