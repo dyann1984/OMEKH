@@ -116,13 +116,13 @@ export default function AcousticField({ analyserRef, active, mode = "combined", 
       if (mode !== "particles") {
         for (let i = 0; i < 6; i += 1) {
           const waveRadius = radius * (0.55 + i * 0.18) * (1 + rms * intensity * (0.5 + i * 0.35)) * (1 + beatPulse * 0.08);
-          const alpha = 0.12 + (reducedMotion ? 0 : Math.sin(time * 2.5 + i) * 0.05) + rms * 0.25 * intensity;
+          const alpha = 0.22 + (reducedMotion ? 0 : Math.sin(time * 2.5 + i) * 0.06) + rms * 0.55 * intensity;
           context.strokeStyle = i % 3 === 0
             ? `rgba(214, 173, 87, ${alpha})`
             : i % 3 === 1
               ? `rgba(61, 226, 239, ${alpha})`
               : `rgba(240, 240, 240, ${alpha * 0.7})`;
-          context.lineWidth = 1 + rms * 3 * intensity + beatPulse * 2;
+          context.lineWidth = 2.4 + rms * 5.5 * intensity + beatPulse * 4;
           context.beginPath();
           context.arc(cx, cy, waveRadius, 0, Math.PI * 2);
           context.stroke();
@@ -143,7 +143,7 @@ export default function AcousticField({ analyserRef, active, mode = "combined", 
           if (particle.tail.length > (reducedMotion ? 3 : 8)) particle.tail.shift();
 
           for (let i = 0; i < particle.tail.length; i += 1) {
-            const alpha = ((i + 1) / particle.tail.length) * (0.18 + bandEnergy * 0.35) * intensity;
+            const alpha = ((i + 1) / particle.tail.length) * (0.32 + bandEnergy * 0.65) * intensity;
             const tail = particle.tail[i];
             context.fillStyle = band === 0
               ? `rgba(214, 173, 87, ${alpha})`
@@ -151,7 +151,7 @@ export default function AcousticField({ analyserRef, active, mode = "combined", 
                 ? `rgba(61, 226, 239, ${alpha})`
                 : `rgba(243, 240, 233, ${alpha * 0.7})`;
             context.beginPath();
-            context.arc(tail.x, tail.y, 1 + bandEnergy * intensity * 2.4, 0, Math.PI * 2);
+            context.arc(tail.x, tail.y, 2.4 + bandEnergy * intensity * 4, 0, Math.PI * 2);
             context.fill();
           }
         }
