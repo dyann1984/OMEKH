@@ -115,7 +115,7 @@ export default function AcousticField({ analyserRef, active, mode = "combined", 
       // Ondas que representan la energía real.
       if (mode !== "particles") {
         for (let i = 0; i < 6; i += 1) {
-          const waveRadius = radius * (0.55 + i * 0.18) * (1 + rms * intensity * (0.5 + i * 0.35)) * (1 + beatPulse * 0.08);
+          const waveRadius = radius * (0.42 + i * 0.16) * (1 + rms * intensity * (0.75 + i * 0.25)) * (1 + beatPulse * 0.2);
           const alpha = 0.22 + (reducedMotion ? 0 : Math.sin(time * 2.5 + i) * 0.06) + rms * 0.55 * intensity;
           context.strokeStyle = i % 3 === 0
             ? `rgba(214, 173, 87, ${alpha})`
@@ -140,10 +140,10 @@ export default function AcousticField({ analyserRef, active, mode = "combined", 
           const y = cy + Math.sin(particle.angle + particle.phase) * responseRadius * (0.75 + particle.depth);
 
           particle.tail.push({ x, y });
-          if (particle.tail.length > (reducedMotion ? 3 : 8)) particle.tail.shift();
+          if (particle.tail.length > (reducedMotion ? 5 : 16)) particle.tail.shift();
 
           for (let i = 0; i < particle.tail.length; i += 1) {
-            const alpha = ((i + 1) / particle.tail.length) * (0.32 + bandEnergy * 0.65) * intensity;
+            const alpha = ((i + 1) / particle.tail.length) * (0.42 + bandEnergy * 0.75) * intensity;
             const tail = particle.tail[i];
             context.fillStyle = band === 0
               ? `rgba(214, 173, 87, ${alpha})`
